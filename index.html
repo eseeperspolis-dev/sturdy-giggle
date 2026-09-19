@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#17202a">
+<link rel="manifest" href="manifest.json">
+<title>محاسبه وزن و ضخامت</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#eef1f4;color:#17202a;font-family:Tahoma,Arial,sans-serif}
+main{max-width:540px;margin:auto;padding:14px}
+.card{background:#fff;border-radius:20px;padding:18px;margin:10px 0;box-shadow:0 5px 20px #0001}
+h1{text-align:center;font-size:22px;margin:2px 0 4px}
+.sub{text-align:center;color:#6b7280;font-size:12px;margin:0 0 14px}
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:7px;background:#eef1f4;padding:5px;border-radius:13px;margin-bottom:16px}
+.tab{border:0;background:transparent;color:#555;padding:11px 5px;border-radius:10px;font-size:14px;font-weight:700}
+.tab.active{background:#17202a;color:#fff}
+.panel{display:none}.panel.active{display:block}
+label{font-weight:700;font-size:13px;display:block;margin:11px 0 5px}
+input{width:100%;padding:12px;border:1px solid #ccd2d8;border-radius:11px;font-size:18px;text-align:center;direction:ltr}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+button{border:0;border-radius:11px;padding:13px;font-size:16px;font-weight:700;cursor:pointer}
+.primary{width:100%;margin-top:15px;background:#17202a;color:#fff}
+.secondary{background:#e8ecef;color:#17202a}
+.result{padding:12px;border:1px solid #e0e4e8;border-radius:12px;margin-top:8px;display:flex;justify-content:space-between}
+.value{font-weight:800;direction:ltr}
+.note{font-size:11px;color:#777;line-height:1.8;margin-top:12px}
+.history h2{font-size:16px}.item{font-size:12px;border-top:1px solid #eee;padding:9px 0}.empty{color:#777;font-size:12px}
+</style>
+</head>
+<body>
+<main>
+<div class="card">
+<h1>محاسبه وزن و ضخامت</h1>
+<p class="sub">بر اساس فرمول فایل Excel شما</p>
+
+<div class="tabs">
+<button class="tab active" onclick="showTab('thicknessTab',this)">محاسبه ضخامت</button>
+<button class="tab" onclick="showTab('weightTab',this)">محاسبه وزن</button>
+</div>
+
+<div id="thicknessTab" class="panel active">
+<label>عرض (mm)</label><input id="tw" type="number" inputmode="decimal">
+<label>طول (mm)</label><input id="tl" type="number" inputmode="decimal">
+<label>تعداد شیت</label><input id="tc" type="number" inputmode="numeric">
+<label>وزن با پالت (kg)</label><input id="tg" type="number" inputmode="decimal">
+<button class="primary" onclick="calcThickness()">محاسبه ضخامت</button>
+<div class="grid" style="margin-top:9px">
+<button class="secondary" onclick="clearTab('t')">پاک کردن</button>
+<button class="secondary" onclick="saveThickness()">ذخیره محاسبه</button>
+</div>
+<div class="result"><span>وزن خالص محاسباتی</span><span class="value" id="tnet">—</span></div>
+<div class="result"><span>ضخامت محاسباتی</span><span class="value" id="tres">—</span></div>
+<div class="note">وزن خالص = وزن با پالت − (عرض × طول × 0.000018)<br>ضخامت = وزن خالص ÷ تعداد ÷ طول ÷ عرض ÷ 7.85 × 1,000,000</div>
+</div>
+
+<div id="weightTab" class="panel">
+<label>ضخامت (mm)</label><input id="wt" type="number" inputmode="decimal">
+<label>عرض (mm)</label><input id="ww" type="number" inputmode="decimal">
+<label>طول (mm)</label><input id="wl" type="number" inputmode="decimal">
+<label>تعداد شیت</label><input id="wc" type="number" inputmode="numeric">
+<button class="primary" onclick="calcWeight()">محاسبه وزن</button>
+<div class="grid" style="margin-top:9px">
+<button class="secondary" onclick="clearTab('w')">پاک کردن</button>
+<button class="secondary" onclick="saveWeight()">ذخیره محاسبه</button>
+</div>
+<div class="result"><span>وزن خالص محاسباتی</span><span class="value" id="wnet">—</span></div>
+<div class="result"><span>وزن با پالت محاسباتی</span><span class="value" id="wgross">—</span></div>
+<div class="note">وزن خالص = ضخامت × تعداد × طول × عرض × 7.85 ÷ 1,000,000<br>وزن با پالت = وزن خالص + (عرض × طول × 0.000018)</div>
+</div>
+</div>
+
+<div class="card history">
+<h2>آخرین محاسبات</h2>
+<div id="hist" class="empty">هنوز محاسبه‌ای ذخیره نشده است.</div>
+</div>
+</main>
+
+<script>
+const n=id=>Number(document.getElementById(id).value);
+function fmt(x,d=3){return Number.isFinite(x)?x.toLocaleString('en-US',{maximumFractionDigits:d}):'—'}
+function showTab(id,btn){
+ document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+ document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+ document.getElementById(id).classList.add('active');btn.classList.add('active');
+}
+function calcThickness(){
+ const w=n('tw'),l=n('tl'),c=n('tc'),g=n('tg');
+ if(!(w>0&&l>0&&c>0&&g>=0)){document.getElementById('tnet').textContent='—';document.getElementById('tres').textContent='—';return null}
+ const net=g-(w*l*0.000018);
+ const t=net/c/l/w/7.85*1000000;
+ document.getElementById('tnet').textContent=fmt(net)+' kg';
+ document.getElementById('tres').textContent=fmt(t,4)+' mm';
+ return {type:'ضخامت',w,l,c,g,net,t};
+}
+function calcWeight(){
+ const t=n('wt'),w=n('ww'),l=n('wl'),c=n('wc');
+ if(!(t>0&&w>0&&l>0&&c>0)){document.getElementById('wnet').textContent='—';document.getElementById('wgross').textContent='—';return null}
+ const net=t*c*l*w*7.85/1000000;
+ const gross=net+(w*l*0.000018);
+ document.getElementById('wnet').textContent=fmt(net)+' kg';
+ document.getElementById('wgross').textContent=fmt(gross)+' kg';
+ return {type:'وزن',t,w,l,c,net,gross};
+}
+function clearTab(x){
+ const ids=x==='t'?['tw','tl','tc','tg']:['wt','ww','wl','wc'];
+ ids.forEach(id=>document.getElementById(id).value='');
+ if(x==='t'){document.getElementById('tnet').textContent='—';document.getElementById('tres').textContent='—'}
+ else{document.getElementById('wnet').textContent='—';document.getElementById('wgross').textContent='—'}
+}
+function saveRecord(r){
+ if(!r)return;
+ let h=JSON.parse(localStorage.getItem('hist')||'[]');h.unshift(r);h=h.slice(0,10);
+ localStorage.setItem('hist',JSON.stringify(h));render();
+}
+function saveThickness(){saveRecord(calcThickness())}
+function saveWeight(){saveRecord(calcWeight())}
+function render(){
+ const h=JSON.parse(localStorage.getItem('hist')||'[]'),el=document.getElementById('hist');
+ if(!h.length){el.className='empty';el.textContent='هنوز محاسبه‌ای ذخیره نشده است.';return}
+ el.className='';
+ el.innerHTML=h.map((x,i)=>x.type==='وزن'
+ ? `<div class="item">#${i+1} — وزن | ضخامت ${fmt(x.t,4)} mm | عرض ${fmt(x.w,2)} | طول ${fmt(x.l,2)} | تعداد ${fmt(x.c,0)} | خالص ${fmt(x.net)} kg | با پالت ${fmt(x.gross)} kg</div>`
+ : `<div class="item">#${i+1} — ضخامت | عرض ${fmt(x.w,2)} | طول ${fmt(x.l,2)} | تعداد ${fmt(x.c,0)} | خالص ${fmt(x.net)} kg | ضخامت ${fmt(x.t,4)} mm</div>`
+ ).join('');
+}
+['tw','tl','tc','tg'].forEach(id=>document.getElementById(id).addEventListener('input',calcThickness));
+['wt','ww','wl','wc'].forEach(id=>document.getElementById(id).addEventListener('input',calcWeight));
+render();
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
